@@ -286,6 +286,8 @@ public class KThread {
 
 		Lib.assertTrue(this != currentThread);
 
+		
+
 	}
 
 	/**
@@ -407,14 +409,47 @@ public class KThread {
 		private int which;
 	}
 
+	private static class Rec{
+		Rec(){
+			c = 0;
+		}
+		public int c;
+	}
+	private static class JoinTest implements Runnable {
+		JoinTest(Rec rec) {
+			r = rec;
+		}
+
+		public void run() {
+			r.c ++;
+			System.out.println("*** thread modifier modify count to " + r.c);
+		}
+
+		public Rec r;
+	}
+
 	/**
 	 * Tests whether this module is working.
 	 */
+	private static void doPingTest(){
+		new KThread(new PingTest(1)).setName("forked thread").fork();
+		new PingTest(0).run();
+	}
+
+	private static void doJoinTest(){
+		Rec r = new Rec();
+		KThread p = new KThread(new JoinTest(r)).setName("modifier");
+		System.out.println("*** thread main: count is " + r.c);
+		p.fork();
+		p.join();
+		Lib.assertTrue(r.c == 1);
+	}
+
 	public static void selfTest() {
 		Lib.debug(dbgThread, "Enter KThread.selfTest");
 
-		new KThread(new PingTest(1)).setName("forked thread").fork();
-		new PingTest(0).run();
+		doPingTest();
+		doJoinTest();
 	}
 
 	private static final char dbgThread = 't';
