@@ -57,7 +57,7 @@ public abstract class ThreadQueue {
      * another lock. Note, though, that the processor cannot be held while
      * waiting for access to anything else.
      *
-     * @param	thread	the thread waiting for access.
+     * @param        thread        the thread waiting for access.
      */
     public abstract void waitForAccess(KThread thread);
 
@@ -71,8 +71,8 @@ public abstract class ThreadQueue {
      * threads waiting for access, then they will donate priority to the
      * returned thread.
      *
-     * @return	the next thread to receive access, or <tt>null</tt> if there
-     *		are no threads waiting.
+     * @return        the next thread to receive access, or <tt>null</tt> if there
+     *                are no threads waiting.
      */
     public abstract KThread nextThread();
 
@@ -86,8 +86,8 @@ public abstract class ThreadQueue {
      * This method should not be called for a thread returned from
      * <tt>nextThread()</tt>.
      *
-     * @param	thread	the thread that has received access, but was not
-     * 			returned from <tt>nextThread()</tt>.
+     * @param        thread        the thread that has received access, but was not
+     *                         returned from <tt>nextThread()</tt>.
      */
     public abstract void acquire(KThread thread);
 

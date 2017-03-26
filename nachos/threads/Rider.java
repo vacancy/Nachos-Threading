@@ -21,11 +21,11 @@ public class Rider implements RiderInterface {
      * set. The rider will start receiving events after this method returns,
      * potentially before <tt>run()</tt> is called.
      *
-     * @param	controls	the rider's interface to the elevator bank. The
-     *				rider must not attempt to access the elevator
-     *				bank in <i>any</i> other way.
-     * @param	stops		an array of stops the rider should make; see
-     *				below.
+     * @param        controls        the rider's interface to the elevator bank. The
+     *                                rider must not attempt to access the elevator
+     *                                bank in <i>any</i> other way.
+     * @param        stops                an array of stops the rider should make; see
+     *                                below.
      */
     public void initialize(RiderControls controls, int[] stops) {
     }
