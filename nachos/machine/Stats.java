@@ -18,22 +18,15 @@ public final class Stats {
      * Print out the statistics in this object.
      */
     public void print() {
-	System.out.println("Ticks: total " + totalTicks
-			   + ", kernel " + kernelTicks
-			   + ", user " + userTicks);
-	System.out.println("Disk I/O: reads " + numDiskReads
-			   + ", writes " + numDiskWrites);
-	System.out.println("Console I/O: reads " + numConsoleReads
-			   + ", writes " + numConsoleWrites);
-	System.out.println("Paging: page faults " + numPageFaults
-			   + ", TLB misses " + numTLBMisses);
-	System.out.println("Network I/O: received " + numPacketsReceived
-			   + ", sent " + numPacketsSent);
+        System.out.println("Ticks: total " + totalTicks + ", kernel " + kernelTicks + ", user " + userTicks);
+        System.out.println("Disk I/O: reads " + numDiskReads + ", writes " + numDiskWrites);
+        System.out.println("Console I/O: reads " + numConsoleReads + ", writes " + numConsoleWrites);
+        System.out.println("Paging: page faults " + numPageFaults + ", TLB misses " + numTLBMisses);
+        System.out.println("Network I/O: received " + numPacketsReceived + ", sent " + numPacketsSent);
     }
 
     /**
-     * The total amount of simulated time that has passed since Nachos
-     * started.
+     * The total amount of simulated time that has passed since Nachos started.
      */
     public long totalTicks = 0;
     /**
@@ -45,9 +38,9 @@ public final class Stats {
      */
     public long userTicks = 0;
 
-    /** The total number of sectors Nachos has read from the simulated disk.*/
+    /** The total number of sectors Nachos has read from the simulated disk. */
     public int numDiskReads = 0;
-    /** The total number of sectors Nachos has written to the simulated disk.*/
+    /** The total number of sectors Nachos has written to the simulated disk. */
     public int numDiskWrites = 0;
     /** The total number of characters Nachos has read from the console. */
     public int numConsoleReads = 0;
@@ -85,8 +78,7 @@ public final class Stats {
      */
     public static final int ConsoleTime = 100;
     /**
-     * The amount of simulated time required for the network to handle a
-     * packet.
+     * The amount of simulated time required for the network to handle a packet.
      */
     public static final int NetworkTime = 100;
     /**

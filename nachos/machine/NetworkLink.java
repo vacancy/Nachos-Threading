@@ -13,8 +13,8 @@ import java.net.SocketException;
 
 /**
  * A full-duplex network link. Provides ordered, unreliable delivery of
- * limited-size packets to other machines on the network. Packets are
- * guaranteed to be uncorrupted as well.
+ * limited-size packets to other machines on the network. Packets are guaranteed
+ * to be uncorrupted as well.
  *
  * <p>
  * Recall the general layering of network protocols:
@@ -48,13 +48,13 @@ import java.net.SocketException;
  * <p>
  * The session/transport layer provides a byte-stream interface to the
  * application. This means that the transport layer must deliver uncorrupted
- * bytes to the application, in the same order they were sent. Byte-streams
- * must be connected and disconnected, and exist between ports, not machines.
+ * bytes to the application, in the same order they were sent. Byte-streams must
+ * be connected and disconnected, and exist between ports, not machines.
  *
  * <p>
- * This class provides a link layer abstraction. Since we do not allow
- * different Nachos networks to communicate with one another, there is no need
- * for a network layer in Nachos. This should simplify your design for the
+ * This class provides a link layer abstraction. Since we do not allow different
+ * Nachos networks to communicate with one another, there is no need for a
+ * network layer in Nachos. This should simplify your design for the
  * session/transport layer, since you can assume packets never arrive out of
  * order.
  */
@@ -67,245 +67,241 @@ public class NetworkLink {
      * reliability, between 0 and 1, is the probability that any particular
      * packet will not get dropped by the network.
      *
-     * @param	privilege      	encapsulates privileged access to the Nachos
-     * 				machine.
+     * @param privilege
+     *            encapsulates privileged access to the Nachos machine.
      */
     public NetworkLink(Privilege privilege) {
-	System.out.print(" network");
+        System.out.print(" network");
 
-	this.privilege = privilege;
+        this.privilege = privilege;
 
-	try {
-	    localHost = InetAddress.getLocalHost();
-	}
-	catch (UnknownHostException e) {
-	    localHost = null;
-	}
+        try {
+            localHost = InetAddress.getLocalHost();
+        } catch (UnknownHostException e) {
+            localHost = null;
+        }
 
-	Lib.assertTrue(localHost != null);
+        Lib.assertTrue(localHost != null);
 
-	reliability = Config.getDouble("NetworkLink.reliability");
-	Lib.assertTrue(reliability > 0 && reliability <= 1.0);
+        reliability = Config.getDouble("NetworkLink.reliability");
+        Lib.assertTrue(reliability > 0 && reliability <= 1.0);
 
-	socket = null;
+        socket = null;
 
-	for (linkAddress=0;linkAddress<Packet.linkAddressLimit;linkAddress++) {
-	    try {
-		socket = new DatagramSocket(portBase + linkAddress, localHost);
-		break;
-	    }
-	    catch (SocketException e) {
-	    }
-	}
+        for (linkAddress = 0; linkAddress < Packet.linkAddressLimit; linkAddress++) {
+            try {
+                socket = new DatagramSocket(portBase + linkAddress, localHost);
+                break;
+            } catch (SocketException e) {
+            }
+        }
 
-	if (socket == null) {
-	    System.out.println("");
-	    System.out.println("Unable to acquire a link address!");
-	    Lib.assertNotReached();
-	}
+        if (socket == null) {
+            System.out.println("");
+            System.out.println("Unable to acquire a link address!");
+            Lib.assertNotReached();
+        }
 
-	System.out.print("(" + linkAddress + ")");
+        System.out.print("(" + linkAddress + ")");
 
-	receiveInterrupt = new Runnable() {
-		public void run() { receiveInterrupt(); }
-	    };
+        receiveInterrupt = new Runnable() {
+            public void run() {
+                receiveInterrupt();
+            }
+        };
 
-	sendInterrupt = new Runnable() {
-		public void run() { sendInterrupt(); }
-	    };		
-	
-	scheduleReceiveInterrupt();
+        sendInterrupt = new Runnable() {
+            public void run() {
+                sendInterrupt();
+            }
+        };
 
-	Thread receiveThread = new Thread(new Runnable() {
-		public void run() { receiveLoop(); }
-	    });
+        scheduleReceiveInterrupt();
 
-	receiveThread.start();
+        Thread receiveThread = new Thread(new Runnable() {
+            public void run() {
+                receiveLoop();
+            }
+        });
+
+        receiveThread.start();
     }
 
     /**
      * Returns the address of this network link.
      *
-     * @return	the address of this network link.
+     * @return the address of this network link.
      */
     public int getLinkAddress() {
-	return linkAddress;
+        return linkAddress;
     }
 
     /**
      * Set this link's receive and send interrupt handlers.
      *
      * <p>
-     * The receive interrupt handler is called every time a packet arrives
-     * and can be read using <tt>receive()</tt>.
+     * The receive interrupt handler is called every time a packet arrives and
+     * can be read using <tt>receive()</tt>.
      *
      * <p>
      * The send interrupt handler is called every time a packet sent with
-     * <tt>send()</tt> is finished being sent. This means that another
-     * packet can be sent.
+     * <tt>send()</tt> is finished being sent. This means that another packet
+     * can be sent.
      *
-     * @param	receiveInterruptHandler	the callback to call when a packet
-     *					arrives.
-     * @param	sendInterruptHandler	the callback to call when another
-     *					packet can be sent.
+     * @param receiveInterruptHandler
+     *            the callback to call when a packet arrives.
+     * @param sendInterruptHandler
+     *            the callback to call when another packet can be sent.
      */
-    public void setInterruptHandlers(Runnable receiveInterruptHandler,
-				     Runnable sendInterruptHandler) {
-	this.receiveInterruptHandler = receiveInterruptHandler;
-	this.sendInterruptHandler = sendInterruptHandler;
+    public void setInterruptHandlers(Runnable receiveInterruptHandler, Runnable sendInterruptHandler) {
+        this.receiveInterruptHandler = receiveInterruptHandler;
+        this.sendInterruptHandler = sendInterruptHandler;
     }
 
     private void scheduleReceiveInterrupt() {
-	privilege.interrupt.schedule(Stats.NetworkTime, "network recv",
-				     receiveInterrupt);
+        privilege.interrupt.schedule(Stats.NetworkTime, "network recv", receiveInterrupt);
     }
 
     private synchronized void receiveInterrupt() {
-	Lib.assertTrue(incomingPacket == null);
+        Lib.assertTrue(incomingPacket == null);
 
-	if (incomingBytes != null) {
-	    if (Machine.autoGrader().canReceivePacket(privilege)) {
-		try {
-		    incomingPacket = new Packet(incomingBytes);
+        if (incomingBytes != null) {
+            if (Machine.autoGrader().canReceivePacket(privilege)) {
+                try {
+                    incomingPacket = new Packet(incomingBytes);
 
-		    privilege.stats.numPacketsReceived++;
-		}
-		catch (MalformedPacketException e) {
-		}
-	    }
+                    privilege.stats.numPacketsReceived++;
+                } catch (MalformedPacketException e) {
+                }
+            }
 
-	    incomingBytes = null;
-	    notify();
+            incomingBytes = null;
+            notify();
 
-	    if (incomingPacket == null)
-		scheduleReceiveInterrupt();
-	    else if (receiveInterruptHandler != null)
-		receiveInterruptHandler.run();
-	}
-	else {
-	    scheduleReceiveInterrupt();
-	}
+            if (incomingPacket == null)
+                scheduleReceiveInterrupt();
+            else if (receiveInterruptHandler != null)
+                receiveInterruptHandler.run();
+        } else {
+            scheduleReceiveInterrupt();
+        }
     }
 
     /**
      * Return the next packet received.
      *
-     * @return	the next packet received, or <tt>null</tt> if no packet is
-     * 		available.
+     * @return the next packet received, or <tt>null</tt> if no packet is
+     *         available.
      */
     public Packet receive() {
-	Packet p = incomingPacket;
-	
-	if (incomingPacket != null) {
-	    incomingPacket = null;
-	    scheduleReceiveInterrupt();
-	}
+        Packet p = incomingPacket;
 
-	return p;
+        if (incomingPacket != null) {
+            incomingPacket = null;
+            scheduleReceiveInterrupt();
+        }
+
+        return p;
     }
 
     private void receiveLoop() {
-	while (true) {
-	    synchronized(this) {
-		while (incomingBytes != null) {
-		    try {
-			wait();
-		    }
-		    catch (InterruptedException e) {
-		    }
-		}
-	    }
+        while (true) {
+            synchronized (this) {
+                while (incomingBytes != null) {
+                    try {
+                        wait();
+                    } catch (InterruptedException e) {
+                    }
+                }
+            }
 
-	    byte[] packetBytes;
+            byte[] packetBytes;
 
-	    try {
-		byte[] buffer = new byte[Packet.maxPacketLength];
+            try {
+                byte[] buffer = new byte[Packet.maxPacketLength];
 
-		DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
-		
-		socket.receive(dp);
+                DatagramPacket dp = new DatagramPacket(buffer, buffer.length);
 
-		packetBytes = new byte[dp.getLength()];
+                socket.receive(dp);
 
-		System.arraycopy(buffer,0, packetBytes,0, packetBytes.length);
-	    }
-	    catch (IOException e) {
-		return;
-	    }
+                packetBytes = new byte[dp.getLength()];
 
-	    synchronized(this) {
-		incomingBytes = packetBytes;
-	    }
-	}
-    }		
-    
+                System.arraycopy(buffer, 0, packetBytes, 0, packetBytes.length);
+            } catch (IOException e) {
+                return;
+            }
+
+            synchronized (this) {
+                incomingBytes = packetBytes;
+            }
+        }
+    }
+
     private void scheduleSendInterrupt() {
-	privilege.interrupt.schedule(Stats.NetworkTime, "network send",
-				     sendInterrupt);
+        privilege.interrupt.schedule(Stats.NetworkTime, "network send", sendInterrupt);
     }
 
     private void sendInterrupt() {
-	Lib.assertTrue(outgoingPacket != null);
+        Lib.assertTrue(outgoingPacket != null);
 
-	// randomly drop packets, according to its reliability
-	if (Machine.autoGrader().canSendPacket(privilege) &&
-	    Lib.random() <= reliability) {
-	    // ok, no drop
-	    privilege.doPrivileged(new Runnable() {
-		    public void run() { sendPacket(); }
-		});
-	}
-	else {
-	    outgoingPacket = null;
-	}
+        // randomly drop packets, according to its reliability
+        if (Machine.autoGrader().canSendPacket(privilege) && Lib.random() <= reliability) {
+            // ok, no drop
+            privilege.doPrivileged(new Runnable() {
+                public void run() {
+                    sendPacket();
+                }
+            });
+        } else {
+            outgoingPacket = null;
+        }
 
-	if (sendInterruptHandler != null)
-	    sendInterruptHandler.run();
+        if (sendInterruptHandler != null)
+            sendInterruptHandler.run();
     }
 
     private void sendPacket() {
-	Packet p = outgoingPacket;
-	outgoingPacket = null;
-	
-	try {
-	    socket.send(new DatagramPacket(p.packetBytes, p.packetBytes.length,
-					   localHost, portBase+p.dstLink));
+        Packet p = outgoingPacket;
+        outgoingPacket = null;
 
-	    privilege.stats.numPacketsSent++;
-	}
-	catch (IOException e) {
-	}
+        try {
+            socket.send(new DatagramPacket(p.packetBytes, p.packetBytes.length, localHost, portBase + p.dstLink));
+
+            privilege.stats.numPacketsSent++;
+        } catch (IOException e) {
+        }
     }
 
     /**
-     * Send another packet. If a packet is already being sent, the result is
-     * not defined.
+     * Send another packet. If a packet is already being sent, the result is not
+     * defined.
      *
-     * @param	pkt	the packet to send.
-     */       
+     * @param pkt
+     *            the packet to send.
+     */
     public void send(Packet pkt) {
-	if (outgoingPacket == null)
-	    scheduleSendInterrupt();
-	
-	outgoingPacket = pkt;
+        if (outgoingPacket == null)
+            scheduleSendInterrupt();
+
+        outgoingPacket = pkt;
     }
 
     private static final int hash;
     private static final int portBase;
-    
+
     /**
      * The address of the network to which are attached all network links in
      * this JVM. This is a hash on the account name of the JVM running this
-     * Nachos instance. It is used to help prevent packets from other users
-     * from accidentally interfering with this network.
+     * Nachos instance. It is used to help prevent packets from other users from
+     * accidentally interfering with this network.
      */
     public static final byte networkID;
 
     static {
-	hash = System.getProperty("user.name").hashCode();
-	portBase = 0x4E41 + Math.abs(hash%0x4E41);
-	networkID  = (byte) (hash/0x4E41);	
-    }	
+        hash = System.getProperty("user.name").hashCode();
+        portBase = 0x4E41 + Math.abs(hash % 0x4E41);
+        networkID = (byte) (hash / 0x4E41);
+    }
 
     private Privilege privilege;
 

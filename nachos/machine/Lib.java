@@ -630,9 +630,8 @@ public final class Lib {
 	    Lib.assertTrue(field.getType() == fieldType);
 	    Lib.assertTrue(Modifier.isPublic(field.getModifiers()) &&
 		       Modifier.isStatic(field.getModifiers()));
-	}
-	catch (Exception e) {
-	    Lib.assertNotReached();
-	}
+        } catch (Exception e) {
+            Lib.assertNotReached();
+        }
     }
 }
