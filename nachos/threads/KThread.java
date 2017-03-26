@@ -289,7 +289,6 @@ public class KThread {
         Lib.debug(dbgThread, "Joining to thread: " + toString());
 
         Lib.assertTrue(this != currentThread);
-
         
         joinLock.acquire();
         joinCondition.sleep();
@@ -482,6 +481,7 @@ public class KThread {
     private String name = "(unnamed thread)";
     private Runnable target;
     private TCB tcb;
+
     private Lock joinLock = new Lock();
     private Condition joinCondition = new Condition(joinLock);
 
