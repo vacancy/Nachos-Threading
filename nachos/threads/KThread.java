@@ -204,6 +204,10 @@ public class KThread {
 
         currentThread.status = statusFinished;
 
+        currentThread.joinLock.acquire();
+        currentThread.joinCondition.wakeAll();
+        currentThread.joinLock.release();
+
         sleep();
     }
 
@@ -286,6 +290,11 @@ public class KThread {
 
         Lib.assertTrue(this != currentThread);
 
+        if (status != statusFinished){
+            joinLock.acquire();
+            joinCondition.sleep();
+            joinLock.release();
+        }
     }
 
     /**
@@ -434,6 +443,7 @@ public class KThread {
     private static void doPingTest() {
         new KThread(new PingTest(1)).setName("forked thread").fork();
         new PingTest(0).run();
+        System.out.println("[test]PingTest passed");
     }
 
     private static void doJoinTest() {
@@ -443,6 +453,7 @@ public class KThread {
         p.fork();
         p.join();
         Lib.assertTrue(r.c == 1);
+        System.out.println("[test]JoinTest1 passed");
     }
 
     public static void selfTest() {
@@ -476,6 +487,8 @@ public class KThread {
     private String name = "(unnamed thread)";
     private Runnable target;
     private TCB tcb;
+    private Lock joinLock = new Lock();
+    private Condition joinCondition = new Condition(joinLock);
 
     /**
      * Unique identifer for this thread. Used to deterministically compare
