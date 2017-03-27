@@ -28,6 +28,19 @@ public class Communicator {
      *            the integer to transfer.
      */
     public void speak(int word) {
+        mutex.acquire();
+
+        while (hasCachedMessage) {
+            mutex.release();
+            sleepingSpeakers.sleep();
+            mutex.acquire();
+        }
+        hasCachedMessage = true;
+        cachedMessage = word;
+    
+        mutex.release();
+        currentSpeaker.sleep();
+        mutex.acquire();
     }
 
     /**
@@ -37,6 +50,28 @@ public class Communicator {
      * @return the integer transferred.
      */
     public int listen() {
+        mutex.acquire();
+
+        while (!hasCachedMessage) {
+            mutex.release();
+            sleepingSpeakers.sleep();
+            mutex.acquire();
+        }
+        hasCachedMessage = false;
+        int message = cachedMessage;
+        
+        currentSpeaker.wake();
+        sleepingSpeakers.wake();
+
+        mutex.release();
         return 0;
     }
+
+    private Lock mutex = new Lock();
+    private Condition sleepingSpeakers;
+    private Condition sleepingListeners;
+    private Condition currentSpeaker;
+
+    private boolean hasCachedMessage;
+    private int cachedMessage;
 }
