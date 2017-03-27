@@ -104,5 +104,56 @@ public class Alarm {
 
     KThreadWaitingPairComparator pqComparator = new KThreadWaitingPairComparator();
     PriorityQueue<KThreadWaitingPair> waitQueue = new PriorityQueue<KThreadWaitingPair>(pqComparator);
+
+    private static class WaitingTest implements Runnable {
+        public WaitingTest(Alarm alarm, long waitTime) {
+            this.alarm = alarm;
+            this.waitTime = waitTime;
+        }
+
+        public void run() {
+            for (int i = 0; i < 5; ++i) {
+                long startTime = Machine.timer().getTime();
+                alarm.waitUntil(waitTime);
+                long stopTime = Machine.timer().getTime();
+                Lib.assertTrue(startTime + waitTime <= stopTime);
+            }
+        }
+
+        private Alarm alarm;
+        private long waitTime;
+    }
+
+    private static void doSingleWaitingTest() {
+        System.out.println("[test:Alarm] single waiting test started");
+
+        Alarm a = new Alarm();
+        KThread t = new KThread(new WaitingTest(a, 500));
+        t.fork();
+        t.join();
+
+        System.out.println("[test:Alarm] single waiting test passed");
+    }
+
+    private static void doMultipleWaitingTest() {
+        System.out.println("[test:Alarm] multiple waiting test started");
+
+        Alarm a = new Alarm();
+        KThread []pool = new KThread[5];
+        for (int i = 0; i < 5; ++i) {
+            pool[i] = new KThread(new WaitingTest(a, 500 + i * 500));
+            pool[i].fork();
+        }
+        for (int i = 0; i < 5; ++i) {
+            pool[i].join();
+        }
+
+        System.out.println("[test:Alarm] multiple waiting test passed");
+    }
+
+    public static void selfTest() {
+        doSingleWaitingTest();
+        doMultipleWaitingTest();
+    }
 }
 
