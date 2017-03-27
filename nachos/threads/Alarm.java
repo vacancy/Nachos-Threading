@@ -63,10 +63,8 @@ public class Alarm {
         long currentTime = Machine.timer().getTime();
         while (true) {
             KThreadWaitingPair top = waitQueue.peek();
-            if (top != null) {
-                if (top.getFinishTime() <= currentTime) {
-                    waitQueue.poll().getThread().ready();                    
-                }
+            if (top != null && top.getFinishTime() <= currentTime) {
+                waitQueue.poll().getThread().ready();                    
             } else {
                 break;
             }
