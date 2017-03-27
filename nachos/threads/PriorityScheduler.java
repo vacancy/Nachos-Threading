@@ -95,6 +95,42 @@ public class PriorityScheduler extends Scheduler {
         return true;
     }
 
+    private static class PingTest implements Runnable {
+        PingTest(Lock ping, Lock pong) {
+            this.ping = ping;
+            this.pong = pong;
+        }
+
+        public void run() {
+            pong.acquire();
+            ping.acquire();
+            ping.release();
+            pong.release();
+        }
+
+        private Lock ping;
+        private Lock pong;
+    }
+
+    /**
+     * Test if this module is working.
+     */
+    public static void selfTest() {
+        System.out.println("[test:PriorityScheduler] self test started");
+        Lock ping = new Lock();
+        Lock pong = new Lock();
+
+        ping.acquire();
+        KThread p = new KThread(new PingTest(ping, pong)).setName("ping");
+        p.fork();
+
+        pong.acquire();
+        pong.release();
+        ping.release();
+        p.join();
+        System.out.println("[test:PriorityScheduler] self test passed");
+    }
+
     /**
      * The default priority for a new thread. Do not change this value.
      */
