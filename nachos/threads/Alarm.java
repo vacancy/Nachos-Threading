@@ -1,12 +1,41 @@
 package nachos.threads;
 
 import nachos.machine.*;
+import java.util.PriorityQueue;
+import java.util.Comparator;
 
 /**
  * Uses the hardware timer to provide preemption, and to allow threads to sleep
  * until a certain time.
  */
 public class Alarm {
+    private static class KThreadWaitingPair {
+        KThreadWaitingPair(KThread thread, long finishTime) {
+            this.thread = thread;
+            this.finishTime = finishTime;
+        }
+
+        KThread getThread() {
+            return thread;
+        }
+
+        long getFinishTime() {
+            return finishTime;
+        }
+
+        private KThread thread;
+        private long finishTime;
+    }
+
+    private static class KThreadWaitingPairComparator implements Comparator<KThreadWaitingPair> {
+        @Override
+        public int compare(KThreadWaitingPair x, KThreadWaitingPair y) {
+            long delta = x.getFinishTime() - y.getFinishTime();
+            
+            return delta == 0 ? 0 : (delta > 0 ? 1 : -1);
+        }
+    }
+
     /**
      * Allocate a new Alarm. Set the machine's timer interrupt handler to this
      * alarm's callback.
@@ -29,6 +58,21 @@ public class Alarm {
      * should be run.
      */
     public void timerInterrupt() {
+        boolean intStatus = Machine.interrupt().disable();
+
+        long currentTime = Machine.timer().getTime();
+        while (true) {
+            KThreadWaitingPair top = waitQueue.peek();
+            if (top != null) {
+                if (top.getFinishTime() <= currentTime) {
+                    waitQueue.poll().getThread().ready();                    
+                }
+            } else {
+                break;
+            }
+        }
+
+        Machine.interrupt().restore(intStatus);
         KThread.currentThread().yield();
     }
 
@@ -48,7 +92,17 @@ public class Alarm {
     public void waitUntil(long x) {
         // for now, cheat just to get something working (busy waiting is bad)
         long wakeTime = Machine.timer().getTime() + x;
-        while (wakeTime > Machine.timer().getTime())
-            KThread.yield();
+        KThreadWaitingPair pair = new KThreadWaitingPair(KThread.currentThread(), wakeTime);
+    
+        boolean intStatus = Machine.interrupt().disable();
+
+        waitQueue.add(pair);
+        KThread.sleep();
+
+        Machine.interrupt().restore(intStatus);
     }
+
+    KThreadWaitingPairComparator pqComparator = new KThreadWaitingPairComparator();
+    PriorityQueue<KThreadWaitingPair> waitQueue = new PriorityQueue<KThreadWaitingPair>(pqComparator);
 }
+
