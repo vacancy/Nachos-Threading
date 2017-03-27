@@ -347,7 +347,6 @@ public class PriorityScheduler extends Scheduler {
             this.priority = priority;
             
             updateEffectivePriority();
-            setEffectivePriority(priority);
         }
 
         protected void setEffectivePriority(int effectivePriority) {
