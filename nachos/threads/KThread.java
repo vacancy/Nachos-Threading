@@ -436,8 +436,8 @@ public class KThread {
         public void run() {
             l.acquire();
             r.c++;
-            l.release();
             System.out.println("*** modifier " + i + " modifies count to " + r.c);
+            l.release();
         }
 
         private int i;
@@ -459,7 +459,7 @@ public class KThread {
         for (int i = 0; i < n; ++ i)
             pool.get(i).join();
         Lib.assertTrue(r.c == n);
-        System.out.println("[test passed] " + n + "modifier join test");
+        System.out.println("[test passed] " + n + " modifier join test");
     }
 
     private static void JoinMutipleTimesJoinTest(){
