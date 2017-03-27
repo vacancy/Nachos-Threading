@@ -72,13 +72,19 @@ public class Alarm {
     }
 
     private static void doSingleWaitingTest() {
+        System.out.println("[test:Alarm] single waiting test started");
+
         Alarm a = new Alarm();
         KThread t = new KThread(new WaitingTest(a, 500));
         t.fork();
         t.join();
+
+        System.out.println("[test:Alarm] single waiting test passed");
     }
 
     private static void doMultipleWaitingTest() {
+        System.out.println("[test:Alarm] multiple waiting test started");
+
         Alarm a = new Alarm();
         KThread []pool = new KThread[5];
         for (int i = 0; i < 5; ++i) {
@@ -88,6 +94,8 @@ public class Alarm {
         for (int i = 0; i < 5; ++i) {
             pool[i].join();
         }
+
+        System.out.println("[test:Alarm] multiple waiting test passed");
     }
 
     public static void selfTest() {
