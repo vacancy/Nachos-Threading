@@ -429,6 +429,8 @@ public class KThread {
     private static class JoinModifier implements Runnable {
         JoinModifier(int id, JoinTestRec rec, Lock lock) {
             i = id;
+            r = rec;
+            l = lock;
         }
 
         public void run() {
