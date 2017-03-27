@@ -407,8 +407,8 @@ public class KThread {
         private int which;
     }
 
-    private static class Rec {
-        Rec() {
+    private static class JoinTestRec {
+        JoinTestRec() {
             c = 0;
         }
 
@@ -416,7 +416,7 @@ public class KThread {
     }
 
     private static class JoinTest implements Runnable {
-        JoinTest(Rec rec) {
+        JoinTest(JoinTestRec rec) {
             r = rec;
         }
 
@@ -425,7 +425,7 @@ public class KThread {
             System.out.println("*** thread modifier modify count to " + r.c);
         }
 
-        public Rec r;
+        public JoinTestRec r;
     }
 
     /**
@@ -437,7 +437,7 @@ public class KThread {
     }
 
     private static void doJoinTest() {
-        Rec r = new Rec();
+        JoinTestRec r = new JoinTestRec();
         KThread p = new KThread(new JoinTest(r)).setName("modifier");
         System.out.println("*** thread main: count is " + r.c);
         p.fork();

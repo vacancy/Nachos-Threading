@@ -51,4 +51,47 @@ public class Alarm {
         while (wakeTime > Machine.timer().getTime())
             KThread.yield();
     }
+
+    private static class WaitingTest implements Runnable {
+        public WaitingTest(Alarm alarm, long waitTime) {
+            this.alarm = alarm;
+            this.waitTime = waitTime;
+        }
+
+        public void run() {
+            for (int i = 0; i < 5; ++i) {
+                long startTime = Machine.timer().getTime();
+                alarm.waitUntil(waitTime);
+                long stopTime = Machine.timer().getTime();
+                Lib.assertTrue(startTime + waitTime <= stopTime);
+            }
+        }
+
+        private Alarm alarm;
+        private long waitTime;
+    }
+
+    private static void doSingleWaitingTest() {
+        Alarm a = new Alarm();
+        KThread t = new KThread(new WaitingTest(a, 500));
+        t.fork();
+        t.join();
+    }
+
+    private static void doMultipleWaitingTest() {
+        Alarm a = new Alarm();
+        KThread []pool = new KThread[5];
+        for (int i = 0; i < 5; ++i) {
+            pool[i] = new KThread(new WaitingTest(a, 500 + i * 500));
+            pool[i].fork();
+        }
+        for (int i = 0; i < 5; ++i) {
+            pool[i].join();
+        }
+    }
+
+    public static void selfTest() {
+        doSingleWaitingTest();
+        doMultipleWaitingTest();
+    }
 }
