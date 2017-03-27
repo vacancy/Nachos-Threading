@@ -1,5 +1,7 @@
 package nachos.threads;
 
+import java.util.List;
+import java.util.ArrayList;
 import nachos.machine.*;
 
 /**
@@ -407,6 +409,15 @@ public class KThread {
         private int which;
     }
 
+    /**
+     * Tests whether this module is working.
+     */
+    private static void doPingTest() {
+        new KThread(new PingTest(1)).setName("forked thread").fork();
+        new PingTest(0).run();
+        System.out.println("[test]ping test passed");
+    }
+
     private static class Rec {
         Rec() {
             c = 0;
@@ -415,34 +426,57 @@ public class KThread {
         public int c;
     }
 
-    private static class JoinTest implements Runnable {
-        JoinTest(Rec rec) {
+    private static class JoinModifier implements Runnable {
+        JoinModifier(int id, Rec rec, Lock lock) {
+            i = id;
             r = rec;
+            l = lock;
         }
 
         public void run() {
+            l.acquire();
             r.c++;
-            System.out.println("*** thread modifier modify count to " + r.c);
+            l.release();
+            System.out.println("*** modifier " + i + " modifies count to " + r.c);
         }
 
-        public Rec r;
+        private int i;
+        private Rec r;
+        private Lock l; 
     }
 
-    /**
-     * Tests whether this module is working.
-     */
-    private static void doPingTest() {
-        new KThread(new PingTest(1)).setName("forked thread").fork();
-        new PingTest(0).run();
+    private static void MultipleModifierJoinTest(int n){
+        System.out.println("[test started] " + n + " modifier join test");
+        Rec r = new Rec();
+        List<KThread> pool = new ArrayList<KThread>();
+        Lock recLock = new Lock();
+        for (int i = 0; i < n; ++ i){
+            KThread p = new KThread(new JoinModifier(i, r, recLock)).setName("modifier" + i);
+            pool.add(p);
+        }
+        for (int i = 0; i < n; ++ i)
+            pool.get(i).fork();
+        for (int i = 0; i < n; ++ i)
+            pool.get(i).join();
+        Lib.assertTrue(r.c == n);
+        System.out.println("[test passed] " + n + "modifier join test");
+    }
+
+    private static void JoinMutipleTimesJoinTest(){
+        System.out.println("[test started] join multiple times join test");
+        Rec r = new Rec();
+        KThread p = new KThread(new JoinModifier(0, r, new Lock())).setName("modifier");
+        p.fork();
+        p.join();
+        p.join();
+        Lib.assertTrue(r.c == 1);
+        System.out.println("[test passed] join multiple times join test");
     }
 
     private static void doJoinTest() {
-        Rec r = new Rec();
-        KThread p = new KThread(new JoinTest(r)).setName("modifier");
-        System.out.println("*** thread main: count is " + r.c);
-        p.fork();
-        p.join();
-        Lib.assertTrue(r.c == 1);
+        MultipleModifierJoinTest(1);
+        MultipleModifierJoinTest(10);
+        JoinMutipleTimesJoinTest();
     }
 
     public static void selfTest() {
