@@ -123,7 +123,7 @@ public class PriorityScheduler extends Scheduler {
         ping.acquire();
         KThread p = new KThread(new PingTest(ping, pong)).setName("ping");
         p.fork();
-
+        KThread.yield();
         pong.acquire();
         pong.release();
         ping.release();
