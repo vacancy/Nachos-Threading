@@ -85,6 +85,59 @@ public class Condition2 {
         Machine.interrupt().restore(intStatus);
     }
 
+    private static class PingTest implements Runnable {
+        PingTest(Lock pingLock, Condition2 ping, Lock pongLock, Condition2 pong) {
+            this.pingLock = pingLock;
+            this.ping = ping;
+            this.pongLock = pongLock;
+            this.pong = pong;
+        }
+
+        public void run() {
+            for (int i = 0; i < 10; i++) {
+                pingLock.acquire();
+                ping.wakeAll();
+                pongLock.acquire();
+
+                pingLock.release();
+                pong.sleep();
+                pongLock.release();
+            }
+        }
+
+        private Lock pingLock;
+        private Lock pongLock;
+        private Condition2 ping;
+        private Condition2 pong;
+    }
+
+    /**
+     * Test if this module is working.
+     */
+    public static void selfTest() {
+        System.out.println("[test:Condition2] self test started");
+        Lock pingLock = new Lock();
+        Condition2 ping = new Condition2(pingLock);
+        Lock pongLock = new Lock();
+        Condition2 pong = new Condition2(pongLock);
+
+        pingLock.acquire();
+        KThread p = new KThread(new PingTest(pingLock, ping, pongLock, pong)).setName("ping");
+        p.fork();
+
+        for (int i = 0; i < 10; i++) {
+            ping.sleep();
+            pingLock.release();
+            pongLock.acquire();
+            pong.wakeAll();
+            pingLock.acquire();
+            pongLock.release();
+        }
+        pingLock.release();
+        p.join();
+        System.out.println("[test:Condition2] self test passed");
+    }
+
     private Lock conditionLock;
     private ThreadQueue waitQueue = ThreadedKernel.scheduler.newThreadQueue(false);
 }

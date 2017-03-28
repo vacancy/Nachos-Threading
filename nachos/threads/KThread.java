@@ -418,9 +418,6 @@ public class KThread {
         private int which;
     }
 
-    /**
-     * Tests whether this module is working.
-     */
     private static void doPingTest() {
         System.out.println("[test:KThread] pingpong test started");
         new KThread(new PingTest(1)).setName("forked thread").fork();
@@ -487,6 +484,9 @@ public class KThread {
         doJoinMutipleTimesJoinTest();
     }
 
+    /**
+     * Tests whether this module is working.
+     */
     public static void selfTest() {
         Lib.debug(dbgThread, "Enter KThread.selfTest");
 

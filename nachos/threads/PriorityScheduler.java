@@ -97,6 +97,137 @@ public class PriorityScheduler extends Scheduler {
     }
 
     /**
+     * A <tt>PQTestNoBlockLock</tt> is a synchronization primitive that has two states,
+     * <i>busy</i> and <i>free</i>. There are only two operations allowed on a lock:
+     *
+     * <ul>
+     * <li><tt>acquire()</tt>: try to get the lock. return true if <i>free</i> and
+     * then set it to <i>busy</i>. return false if <i>busy</i>.
+     * <li><tt>release()</tt>: set the lock to be <i>free</i>, waking up one waiting
+     * thread if possible.
+     * </ul>
+     */
+    public static class PQTestNoBlockLock{
+        /**
+         * Allocate a new lock. The lock will initially be <i>free</i>.
+         */
+        public PQTestNoBlockLock() {
+        }
+
+        /**
+         * Atomically acquire this lock. The current thread must not already hold
+         * this lock.
+         *
+         * @return true if the successfully acquire the lock.
+         */
+        public boolean acquire() {
+            Lib.assertTrue(!isHeldByCurrentThread());
+
+            boolean intStatus = Machine.interrupt().disable();
+            KThread thread = KThread.currentThread();
+
+            if (lockHolder != null) {
+                Machine.interrupt().restore(intStatus);
+                return false;
+            } else {
+                waitQueue.acquire(thread);
+                lockHolder = thread;
+            }
+
+            Lib.assertTrue(lockHolder == thread);
+
+            Machine.interrupt().restore(intStatus);
+
+            return true;
+        }
+
+        /**
+         * Atomically release this lock, allowing other threads to acquire it.
+         */
+        public void release() {
+            Lib.assertTrue(isHeldByCurrentThread());
+
+            boolean intStatus = Machine.interrupt().disable();
+
+            if ((lockHolder = waitQueue.nextThread()) != null)
+                lockHolder.ready();
+
+            Machine.interrupt().restore(intStatus);
+        }
+
+        /**
+         * Test if the current thread holds this lock.
+         *
+         * @return true if the current thread holds this lock.
+         */
+        public boolean isHeldByCurrentThread() {
+            return (lockHolder == KThread.currentThread());
+        }
+
+        private KThread lockHolder = null;
+        private ThreadQueue waitQueue = ThreadedKernel.scheduler.newThreadQueue(true);
+    }
+
+    private static class PingTest implements Runnable {
+        PingTest(PQTestNoBlockLock ping, Lock pong) {
+            this.ping = ping;
+            this.pong = pong;
+        }
+
+        public void run() {
+            boolean flag = true;
+            while (flag){
+                pong.acquire();
+                if (ping.acquire()){
+                    ping.release();
+                    flag = false;
+                }
+                pong.release();
+            }
+        }
+
+        private PQTestNoBlockLock ping;
+        private Lock pong;
+    }
+
+    private static void selfTestgetEffectivePriority(String name){
+        boolean intStatus = Machine.interrupt().disable();
+        System.out.println("*** " + name + " priority " +
+            ((PriorityScheduler)ThreadedKernel.scheduler).getEffectivePriority(KThread.currentThread()));
+        Machine.interrupt().restore(intStatus);
+    }
+
+    /**
+     * Test if this module is working.
+     */
+    public static void selfTest() {
+        System.out.println("[test:PriorityScheduler] self test started");
+
+        PQTestNoBlockLock ping = new PQTestNoBlockLock();
+        Lock pong = new Lock();
+
+        ping.acquire();
+        KThread p0 = new KThread(new PingTest(ping, pong)).setName("ping0");
+        KThread p1 = new KThread(new PingTest(ping, pong)).setName("ping1");
+        ((PriorityScheduler)ThreadedKernel.scheduler).decreasePriority();
+        selfTestgetEffectivePriority("main @checkpoint 0");
+        p0.fork();
+        p1.fork();
+        System.out.println("*** thread p0 and p1 forked");
+        selfTestgetEffectivePriority("main @checkpoint 1");
+        //KThread.yield();
+        pong.acquire();
+        selfTestgetEffectivePriority("main @checkpoint 2");
+        pong.release();
+        ping.release();
+        p0.join();
+        p1.join();
+        System.out.println("*** thread p0 and p1 joined");
+        selfTestgetEffectivePriority("main @checkpoint 3");
+        System.out.println("[test:PriorityScheduler] self test passed");
+    }
+
+    /**
      * The default priority for a new thread. Do not change this value.
      */
     public static final int priorityDefault = 1;
