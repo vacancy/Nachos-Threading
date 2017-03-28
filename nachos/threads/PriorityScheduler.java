@@ -189,12 +189,18 @@ public class PriorityScheduler extends Scheduler {
         private Lock pong;
     }
 
+    private static void selfTestgetEffectivePriority(String name){
+        boolean intStatus = Machine.interrupt().disable();
+        System.out.println("*** " + name + " priority " +
+            ((PriorityScheduler)ThreadedKernel.scheduler).getEffectivePriority(KThread.currentThread()));
+        Machine.interrupt().restore(intStatus);
+    }
+
     /**
      * Test if this module is working.
      */
     public static void selfTest() {
         System.out.println("[test:PriorityScheduler] self test started");
-        PriorityScheduler scheduler = (PriorityScheduler)ThreadedKernel.scheduler;
 
         PQTestNoBlockLock ping = new PQTestNoBlockLock();
         Lock pong = new Lock();
@@ -202,15 +208,21 @@ public class PriorityScheduler extends Scheduler {
         ping.acquire();
         KThread p0 = new KThread(new PingTest(ping, pong)).setName("ping0");
         KThread p1 = new KThread(new PingTest(ping, pong)).setName("ping1");
-        scheduler.decreasePriority();
+        ((PriorityScheduler)ThreadedKernel.scheduler).decreasePriority();
+        selfTestgetEffectivePriority("main @checkpoint 0");
         p0.fork();
         p1.fork();
+        System.out.println("*** thread p0 and p1 forked");
+        selfTestgetEffectivePriority("main @checkpoint 1");
         //KThread.yield();
         pong.acquire();
+        selfTestgetEffectivePriority("main @checkpoint 2");
         pong.release();
         ping.release();
         p0.join();
         p1.join();
+        System.out.println("*** thread p0 and p1 joined");
+        selfTestgetEffectivePriority("main @checkpoint 3");
         System.out.println("[test:PriorityScheduler] self test passed");
     }
 
