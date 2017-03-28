@@ -40,9 +40,9 @@ public class Condition2 {
         conditionLock.release();
         waitQueue.waitForAccess(thread);
         KThread.sleep();
-        Machine.interrupt().restore(intStatus);
-
         conditionLock.acquire();
+
+        Machine.interrupt().restore(intStatus);
     }
 
     /**
