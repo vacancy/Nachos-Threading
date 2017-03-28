@@ -245,11 +245,11 @@ public class PriorityScheduler extends Scheduler {
 
         @Override
         public int compareTo(ThreadPriorityRecord other) {
-            if (this.priority > other.priority) {
+            if (this.priority < other.priority) {
                 return 1;
             } else if (this.priority == other.priority) {
                 // the threads that was first added into the queue have higher priority.
-                if (this.time < other.time) {
+                if (this.time > other.time) {
                     return 1;
                 } else if (this.time == other.time) {
                     return 0;
@@ -282,6 +282,11 @@ public class PriorityScheduler extends Scheduler {
 
         public void setPriority(int priority) {
             this.priority = priority;
+            this.time = Machine.timer().getTime();
+        }
+
+        public long getTime() {
+            return this.time;
         }
 
         private ThreadState state;

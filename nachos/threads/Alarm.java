@@ -32,7 +32,7 @@ public class Alarm {
         public int compare(KThreadWaitingPair x, KThreadWaitingPair y) {
             long delta = x.getFinishTime() - y.getFinishTime();
             
-            return delta == 0 ? 0 : (delta > 0 ? 1 : -1);
+            return delta == 0 ? 0 : (delta > 0 ? -1 : 1);
         }
     }
 
