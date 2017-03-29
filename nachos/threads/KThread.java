@@ -207,6 +207,8 @@ public class KThread {
         currentThread.status = statusFinished;
 
         sleep();
+
+        semaphore.V();
     }
 
     /**
@@ -287,6 +289,9 @@ public class KThread {
         Lib.debug(dbgThread, "Joining to thread: " + toString());
 
         Lib.assertTrue(this != currentThread);
+        if (status != statusFinished)
+            semaphore.P();
+
 
     }
 
@@ -522,4 +527,6 @@ public class KThread {
     private static KThread currentThread = null;
     private static KThread toBeDestroyed = null;
     private static KThread idleThread = null;
+
+    private static Semaphore semaphore = null;
 }
