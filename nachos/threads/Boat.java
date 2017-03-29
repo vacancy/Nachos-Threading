@@ -3,24 +3,69 @@ package nachos.threads;
 import nachos.machine.*;
 import nachos.ag.BoatGrader;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.ArrayList;
+import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.FileNotFoundException;
+
 
 public class Boat {
     static BoatGrader bg;
 
+    public static List<Integer> gg() {
+        List<Integer> list = new ArrayList<Integer>();
+        File file = new File("args.txt");
+        BufferedReader reader = null;
+        
+        try {
+            reader = new BufferedReader(new FileReader(file));
+            String text = null;
+        
+            while ((text = reader.readLine()) != null) {
+                list.add(Integer.parseInt(text));
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (reader != null) {
+                    reader.close();
+                }
+            } catch (IOException e) {
+            }
+        }
+        return list;
+    }
+
     public static void selfTest() {
         BoatGrader b = new BoatGrader();
 
-        System.out.println("\n ***Testing Boats with only 2 children***");
-        begin(0, 2, b);
+        // System.out.println("\n ***Testing Boats with only 2 children***");
+        // begin(0, 2, b);
 
-        System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
-        begin(1, 2, b);
+        // System.out.println("\n ***Testing Boats with only 3 children***");
+        // begin(0, 3, b);
 
-        System.out.println("\n ***Testing Boats with 3 children, 3 adults***");
-        begin(3, 3, b);
+        // System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
+        // begin(1, 2, b);
+        
+        begin(1, 16, b);
+
+        // List<Integer> args = gg();
+        // int a = args.get(0).intValue();
+        // int c = args.get(1).intValue();
+
+        // begin(a, c, b);
     }
 
     public static void begin(int adults, int children, BoatGrader b) {
+        System.err.println("***Testing Boats with " + children + " children, " + adults + " adults***");
+
         // Store the externally generated autograder in a class
         // variable to be accessible by children.
         bg = b;
@@ -34,10 +79,12 @@ public class Boat {
         LinkedList<KThread> allThreads = new LinkedList<KThread>();
         for (int i = 0; i < adults; ++i) {
             KThread t = new KThread(new Adult(world));
+            t.setName("Adult #" + i);
             allThreads.add(t);
         }
         for (int i = 0; i < children; ++i) {
             KThread t = new KThread(new Child(world));
+            t.setName("Child #" + i);
             allThreads.add(t);
         }
 
@@ -50,6 +97,7 @@ public class Boat {
 
         Lib.assertTrue(world.molokai.getNumAdult() == adults);
         Lib.assertTrue(world.molokai.getNumChild() == children);
+        System.err.println("***Test passed: Boats with " + children + " children, " + adults + " adults***");
     }
 
     static void AdultItinerary() {
@@ -94,23 +142,22 @@ public class Boat {
         public Island molokai = new Island();
         public TheBoat boat;
 
-        public Lock readyLock = new Lock();
-        private Lock announceNewComerLock = new Lock();
-        private Condition announceNewComerCond = new Condition(announceNewComerLock);
+        public Lock mutex = new Lock();
+        private Condition announceNewComerCond = new Condition(mutex);
         private boolean needBack = false;
 
         public void announceNewComer(boolean needBack) {
-            announceNewComerLock.acquire();
             this.needBack = needBack;
-            announceNewComerCond.wakeAll();
-            announceNewComerLock.release();
+            if (needBack) {
+                announceNewComerCond.wake();
+            } else {
+                announceNewComerCond.wakeAll();
+            }
         }
 
         public boolean waitNewComer() {
-            announceNewComerLock.acquire();
             announceNewComerCond.sleep();
             boolean needBack = this.needBack;
-            announceNewComerLock.release();
             return needBack;
         }
     }
@@ -154,10 +201,25 @@ public class Boat {
         public TheBoat(World world) {
             this.world = world;
             this.island = world.oahu;
+
+            mutex = world.mutex;
+            this.waitPilot = new Condition(mutex);
+            this.waitPassenger = new Condition(mutex);
+            this.waitPassengerDown = new Condition(mutex);
+            this.waitOahuArriveCond = new Condition(mutex);
+            this.waitMolokaiArriveCond = new Condition(mutex);
+            this.waitOahuLeaveCond = new Condition(mutex);
+        }
+
+        public void acquire() {
+            mutex.acquire();
+        }
+
+        public void release() {
+            mutex.release();
         }
 
         public int tryGetOn(Person other, boolean pilotOnly) {
-            mutex.acquire();
             int rc = 0;
 
             if (other.getIsland() == island) {
@@ -170,13 +232,10 @@ public class Boat {
                 }
             }
 
-            mutex.release();
-
             return rc;
         }
 
         public void go(Person me) {
-            mutex.acquire();
             Lib.assertTrue(pilot == me);
 
             if (pilot.isAdult()) {
@@ -210,62 +269,74 @@ public class Boat {
             }
 
             Island nextIsland = island == world.oahu ? world.molokai : world.oahu;
-            Condition nextCondition = island == world.oahu ? waitMolokai : waitOahu;
+            Condition nextCondition = island == world.oahu ? waitMolokaiArriveCond: waitOahuArriveCond;
+
+            if (island == world.oahu) {
+                waitOahuLeaveCond.wakeAll();
+            }
+
+            this.island = nextIsland;
 
             pilot.setIsland(nextIsland);
             if (passenger != null) {
                 passenger.setIsland(nextIsland);
                 waitPassenger.wake();
+                waitPassengerDown.sleep();
             }
-            nextCondition.wakeAll();
 
-            this.island = nextIsland;
             this.pilot = null;
             this.passenger = null;
-
-            mutex.release(); 
+            nextCondition.wakeAll();
         }
 
-        public void waitGoPassenger(Person me) {
-            mutex.acquire();
+        public void getOnPassenger(Person me) {
             Lib.assertTrue(passenger == me);
             waitPilot.wake();
             waitPassenger.sleep();
-            mutex.release();
+        }
+
+        public void getOffPassenger(Person me) {
+            Lib.assertTrue(passenger == me);
+            waitPassengerDown.wake();
         }
 
         public void waitGoPilot(Person me) {
-            mutex.acquire();
             Lib.assertTrue(pilot == me);
             waitPilot.sleep();
-            mutex.release();
         }
 
-        public void waitOnOahu(Person me) {
-            mutex.acquire();
+        public void waitOahuLeave(Person me) {
+            Lib.assertTrue(me.getIsland() == world.oahu);
+            if (island == world.oahu) {
+                waitOahuLeaveCond.sleep();
+            }
+        }
+
+        public void waitOahuArrive(Person me) {
             Lib.assertTrue(me.getIsland() == world.oahu);
             if (island != world.oahu) {
-                waitOahu.sleep();
+                waitOahuArriveCond.sleep();
             }
-            mutex.release();
         }
 
-        public void waitOnMolokai(Person me) {
-            mutex.acquire();
+        public void waitMolokaiArrive(Person me) {
             Lib.assertTrue(me.getIsland() == world.molokai);
             if (island != world.molokai) {
-                waitMolokai.sleep();
+                waitMolokaiArriveCond.sleep();
             }
-            mutex.release();
         }
         
         private World world;
         private Island island;
-        private Lock mutex = new Lock();
-        private Condition waitPilot = new Condition(mutex);
-        private Condition waitPassenger = new Condition(mutex);
-        private Condition waitOahu = new Condition(mutex);
-        private Condition waitMolokai = new Condition(mutex);
+
+        private Lock mutex;
+        private Condition waitPilot;
+        private Condition waitPassenger;
+        private Condition waitPassengerDown;
+
+        private Condition waitOahuArriveCond;
+        private Condition waitMolokaiArriveCond;
+        private Condition waitOahuLeaveCond;
         private Person pilot, passenger;
     }
 
@@ -322,6 +393,7 @@ public class Boat {
         public void run() {
             getWorld().grader.initializeAdult();
             TheBoat boat = getBoat();
+            boat.acquire();
 
             // I'm on oahu
             while (true) {
@@ -331,7 +403,8 @@ public class Boat {
                         break;
                     }
                 }
-                boat.waitOnOahu(this);
+                boat.waitOahuLeave(this);
+                boat.waitOahuArrive(this);
             }
 
             boolean needBack = true;
@@ -341,6 +414,7 @@ public class Boat {
 
             boat.go(this);
             getWorld().announceNewComer(needBack);
+            boat.release();
         }
     }
 
@@ -351,6 +425,8 @@ public class Boat {
         
         public void run() {
             getWorld().grader.initializeChild();
+            TheBoat boat = getBoat();
+            boat.acquire();
             while (true) {
                 boolean exit;
                 if (getIsland() == getWorld().oahu) {
@@ -362,22 +438,24 @@ public class Boat {
                     break;
                 }
             }
+            boat.release();
         }
 
         private boolean onChildOahu() {
             TheBoat boat = getBoat();
 
             if (getIsland().getNumChild() == 1) {
-                boat.waitOnOahu(this);
+                boat.waitOahuLeave(this);
+                boat.waitOahuArrive(this);
                 return false;
             }
 
             int rc = boat.tryGetOn(this, false);
                 
             if (rc == 1) {
-                //if (getIsland().getNumChild() > 1) {
-                boat.waitGoPilot(this);
-                //}
+                if (getIsland().getNumChild() > 1) {
+                    boat.waitGoPilot(this);
+                }
     
                 boolean needBack = true;
                 if (getIsland().getNumChild() <= 2 && getIsland().getNumAdult() == 0) {
@@ -385,19 +463,26 @@ public class Boat {
                 }
     
                 boat.go(this);
-                getWorld().announceNewComer(needBack);
-                isLastPilot = true;
-    
+                if (!needBack) {
+                    getWorld().announceNewComer(needBack);
+                }
+
+                this.isLastPilot = true;
+                this.lastNeedBack = needBack;
                 return !needBack;
             } else if (rc == 2) {
                 boolean needBack = true;
                 if (getIsland().getNumChild() <= 2 && getIsland().getNumAdult() == 0) {
                     needBack = false;
                 }
-                boat.waitGoPassenger(this);
-                return !needBack;
+                boat.getOnPassenger(this);
+               
+                this.isLastPassenger = true; 
+                this.lastNeedBack = needBack;
+                return false; 
             } else {
-                boat.waitOnOahu(this);
+                boat.waitOahuLeave(this);
+                boat.waitOahuArrive(this);
             }
     
             return false;
@@ -409,7 +494,14 @@ public class Boat {
             boolean needBack;
             if (isLastPilot) {
                 needBack = true;
-                isLastPilot = false;
+                this.isLastPilot = false;
+            } else if (isLastPassenger) {
+                boat.getOffPassenger(this);
+                if (!lastNeedBack) {
+                    return true;
+                }
+                this.isLastPassenger = false;
+                needBack = getWorld().waitNewComer();
             } else {
                 needBack = getWorld().waitNewComer();
             }
@@ -428,6 +520,8 @@ public class Boat {
         }
 
         private boolean isLastPilot = false;
+        private boolean isLastPassenger = false;
+        private boolean lastNeedBack = false;
     }
 }
 
