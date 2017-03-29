@@ -224,6 +224,7 @@ public class PriorityScheduler extends Scheduler {
         p1.join();
         System.out.println("*** thread p0 and p1 joined");
         selfTestgetEffectivePriority("main @checkpoint 3");
+        ((PriorityScheduler)ThreadedKernel.scheduler).increasePriority();
         System.out.println("[test:PriorityScheduler] self test passed");
     }
 
@@ -323,6 +324,12 @@ public class PriorityScheduler extends Scheduler {
          * @return the next thread that <tt>nextThread()</tt> would return.
          */
         protected ThreadState pickNextThread() {
+            // ThreadPriorityRecord []tmp = queue.toArray(new ThreadPriorityRecord [0]);
+            // System.out.println(this);
+            // for (ThreadPriorityRecord r : tmp) {
+            //     System.out.println("  gg " + r.getThread() + " " + r.getPriority() + " " + r.getTime());
+            // }
+
             if (!queue.isEmpty()) {
                 ThreadPriorityRecord record = queue.poll();
                 return record.getState();
@@ -337,18 +344,26 @@ public class PriorityScheduler extends Scheduler {
         }
 
         public int getMaxPrioirty() {
+            boolean intStatus = Machine.interrupt().disable();
+
             ThreadPriorityRecord peek = queue.peek();
             if (peek == null) {
                 return 0;
             }
+
+            Machine.interrupt().restore(intStatus);
             return peek.getPriority();
         }
 
         public void updateEffectivePriority(ThreadState state) {
+            boolean intStatus = Machine.interrupt().disable();
+
             ThreadPriorityRecord record = stateToRecord.get(state);
             queue.remove(record);
             record.setPriority(state.priority);
             queue.add(record);
+
+            Machine.interrupt().restore(intStatus);
         }
 
         /**
