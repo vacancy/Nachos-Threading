@@ -53,14 +53,12 @@ public class Boat {
 
         // System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
         // begin(1, 2, b);
-        
-        begin(1, 16, b);
-
-        // List<Integer> args = gg();
-        // int a = args.get(0).intValue();
-        // int c = args.get(1).intValue();
-
-        // begin(a, c, b);
+      
+        for (int i = 0; i <= 10; ++i) {
+            for (int j = 2; j <= 10; ++j) {
+                begin(i, j, b);
+            }
+        } 
     }
 
     public static void begin(int adults, int children, BoatGrader b) {

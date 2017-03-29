@@ -206,9 +206,10 @@ public class KThread {
 
         currentThread.status = statusFinished;
 
-        currentThread.joinLock.acquire();
-        currentThread.joinCondition.wakeAll();
-        currentThread.joinLock.release();
+        // currentThread.joinLock.acquire();
+        // currentThread.joinCondition.wakeAll();
+        // currentThread.joinLock.release();
+        currentThread.joinSemaphore.V();
 
         sleep();
     }
@@ -293,9 +294,10 @@ public class KThread {
         Lib.assertTrue(this != currentThread);
 
         if (status != statusFinished){
-            joinLock.acquire();
-            joinCondition.sleep();
-            joinLock.release();
+            // joinLock.acquire();
+            // joinCondition.sleep();
+            // joinLock.release();
+            joinSemaphore.P();
         }
     }
 
@@ -518,8 +520,9 @@ public class KThread {
     private String name = "(unnamed thread)";
     private Runnable target;
     private TCB tcb;
-    private Lock joinLock = new Lock();
-    private Condition joinCondition = new Condition(joinLock);
+    private Semaphore joinSemaphore = new Semaphore(0);
+    // private Lock joinLock = new Lock();
+    // private Condition joinCondition = new Condition(joinLock);
 
     /**
      * Unique identifer for this thread. Used to deterministically compare
