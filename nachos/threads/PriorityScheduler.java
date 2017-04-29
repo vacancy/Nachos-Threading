@@ -107,7 +107,7 @@ public class PriorityScheduler extends Scheduler {
      * thread if possible.
      * </ul>
      */
-    public static class PQTestNoBlockLock{
+    public static class PQTestNoBlockLock {
         /**
          * Allocate a new lock. The lock will initially be <i>free</i>.
          */
