@@ -51,7 +51,6 @@ public class UserProcess {
         Lib.assertTrue(fd.id == FileDescriptorPool.STDIN);
         Lib.assertTrue(fd.impl != null);
 
-
         fd = fds.alloc();
         fd.filename = "__STDOUT__";
         fd.impl = UserKernel.console.openForWriting();
@@ -434,12 +433,13 @@ public class UserProcess {
             return -1;
         }
 
-        int length = fd.impl.read(fd.position, buf, 0, buf.length);
+        // int length = fd.impl.read(fd.position, buf, 0, buf.length);
+        int length = fd.impl.read(buf, 0, buf.length);
         if (length < 0) {
             return -1;
         }
 
-        fd.position += length;
+        // fd.position += length;
         int actual_length = writeVirtualMemory(vaddr, buf, 0, length);
         Lib.assertTrue(length == actual_length);
 
@@ -461,12 +461,16 @@ public class UserProcess {
             return -1;
         }
 
-        int actual_length = fd.impl.write(fd.position, buf, 0, length);
+        // System.out.println("id " + a0 + " buflen " + length);
+        // for (int i = 0; i < length; ++i) System.out.println("char " + i + " = " + buf[i]);
+        // int actual_length = UserKernel.console.openForWriting().write(0, buf, 0, length);
+        // int actual_length = fd.impl.write(fd.position, buf, 0, length);
+        int actual_length = fd.impl.write(buf, 0, length);
         if (actual_length < 0) {
             return -1;
         }
 
-        fd.position += actual_length;
+        // fd.position += actual_length;
 
         return actual_length;
     }
@@ -576,6 +580,7 @@ public class UserProcess {
         Lib.debug(dbgProcess, "Doing syscall " + syscall);
         switch (syscall) {
         case syscallHalt:
+        case syscallExit:
             return handleHalt();
         case syscallCreate:
             return handleCreate(a0);
@@ -605,7 +610,7 @@ public class UserProcess {
         public void reset() {
             this.filename = "";
             this.impl = null;
-            this.position = 0;
+            // this.position = 0;
             this.needRemove = false;
         }
 
@@ -616,7 +621,7 @@ public class UserProcess {
         public int id;
         public String filename = "";
         public OpenFile impl = null;
-        public int position = 0;
+        // public int position = 0;
         public boolean needRemove = false;
     }
 
