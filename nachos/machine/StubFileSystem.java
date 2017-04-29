@@ -28,14 +28,17 @@ public class StubFileSystem implements FileSystem {
     }
 
     public OpenFile open(String name, boolean truncate) {
-        if (!checkName(name))
+        if (!checkName(name)) {
+            System.err.println("check failed " + name);
             return null;
+        }
 
         delay();
 
         try {
             return new StubOpenFile(name, truncate);
         } catch (IOException e) {
+            System.err.println(e);
             return null;
         }
     }
@@ -208,5 +211,6 @@ public class StubFileSystem implements FileSystem {
         allow('_');
         allow('.');
         allow(',');
+        allow('/');
     }
 }
