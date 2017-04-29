@@ -54,8 +54,8 @@ public class Boat {
         // System.out.println("\n ***Testing Boats with 2 children, 1 adult***");
         // begin(1, 2, b);
       
-        for (int i = 0; i <= 10; ++i) {
-            for (int j = 2; j <= 10; ++j) {
+        for (int i = 0; i <= 25; ++i) {
+            for (int j = 2; j <= 25; ++j) {
                 begin(i, j, b);
             }
         } 
