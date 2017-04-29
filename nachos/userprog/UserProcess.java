@@ -23,6 +23,7 @@ public class UserProcess {
      * Allocate a new process.
      */
     public UserProcess() {
+        createStdIO();
         int numPhysPages = Machine.processor().getNumPhysPages();
         pageTable = new TranslationEntry[numPhysPages];
         for (int i = 0; i < numPhysPages; i++)
@@ -38,6 +39,34 @@ public class UserProcess {
      */
     public static UserProcess newUserProcess() {
         return (UserProcess) Lib.constructObject(Machine.getProcessClassName());
+    }
+
+    public void createStdIO() {
+        FileDescriptor fd;
+
+        fd = fds.alloc();
+        fd.filename = "__STDIN__";
+        fd.impl = UserKernel.console.openForReading();
+
+        Lib.assertTrue(fd.id == FileDescriptorPool.STDIN);
+        Lib.assertTrue(fd.impl != null);
+
+
+        fd = fds.alloc();
+        fd.filename = "__STDOUT__";
+        fd.impl = UserKernel.console.openForWriting();
+
+        Lib.assertTrue(fd.id == FileDescriptorPool.STDOUT);
+        Lib.assertTrue(fd.impl != null);
+
+        if (false) {
+            fd = fds.alloc();
+            fd.filename = "__STDERR__";
+            fd.impl = UserKernel.console.openForWriting();
+
+            Lib.assertTrue(fd.id == FileDescriptorPool.STDERR);
+            Lib.assertTrue(fd.impl != null);
+        }
     }
 
     /**
@@ -351,11 +380,127 @@ public class UserProcess {
      * Handle the halt() system call.
      */
     private int handleHalt() {
-
         Machine.halt();
 
         Lib.assertNotReached("Machine.halt() did not halt machine!");
         return 0;
+    }
+
+    private int handleCreate(int a0) {
+        String filename = readVirtualMemoryString(a0, maxArgStringLen);
+        Lib.debug(dbgProcess, "Syscall-create, filename=" + filename + ".");
+        OpenFile impl = ThreadedKernel.fileSystem.open(filename, true);
+        
+        if (impl == null) {
+            return -1;
+        } else {
+            FileDescriptor fd = fds.alloc();
+            if (fd == null) {
+                return -1;
+            } else {
+                fd.filename = filename;
+                fd.impl = impl;
+                return fd.id;
+            }
+        }
+    }
+
+    private int handleOpen(int a0) {
+        String filename = readVirtualMemoryString(a0, maxArgStringLen);
+        Lib.debug(dbgProcess, "Syscall-open, filename=" + filename + ".");
+        OpenFile impl = ThreadedKernel.fileSystem.open(filename, false);
+
+        if (impl == null) {
+            return -1;
+        } else {
+            FileDescriptor fd = fds.alloc();
+            if (fd == null) {
+                return -1;
+            } else {
+                fd.filename = filename;
+                fd.impl = impl;
+                return fd.id;
+            }
+        }
+    }
+
+    private int handleRead(int a0, int vaddr, int bufSize) {
+        byte []buf = new byte[bufSize];
+        Lib.debug(dbgProcess, "Syscall-read, fd=" + a0 + ".");
+
+        FileDescriptor fd = fds.get(a0);
+        
+        if (fd == null) {
+            return -1;
+        }
+
+        int length = fd.impl.read(fd.position, buf, 0, buf.length);
+        if (length < 0) {
+            return -1;
+        }
+
+        fd.position += length;
+        int actual_length = writeVirtualMemory(vaddr, buf, 0, length);
+        Lib.assertTrue(length == actual_length);
+
+        return length;
+    }
+
+    private int handleWrite(int a0, int vaddr, int bufSize) {
+        byte []buf = new byte[bufSize];
+        Lib.debug(dbgProcess, "Syscall-write, fd=" + a0 + ".");
+
+        FileDescriptor fd = fds.get(a0);
+        
+        if (fd == null) {
+            return -1;
+        }
+
+        int length = readVirtualMemory(vaddr, buf);
+        if (length < 0) {
+            return -1;
+        }
+
+        int actual_length = fd.impl.write(fd.position, buf, 0, length);
+        if (actual_length < 0) {
+            return -1;
+        }
+
+        fd.position += actual_length;
+
+        return actual_length;
+    }
+
+    private int handleClose(int a0) {
+        FileDescriptor fd = fds.get(a0);
+
+        if (fd == null) {
+            return -1;
+        }
+
+        fd.impl.close();
+        int rc = 0;
+        if (fd.needRemove) {
+            rc = ThreadedKernel.fileSystem.remove(fd.filename) ? 0 : -1;
+        }
+        fds.free(a0);
+
+        return rc;
+    }
+
+    private int handleUnlink(int a0) {
+        String filename = readVirtualMemoryString(a0, maxArgStringLen); 
+        FileDescriptor fd;
+        int rc = 0;
+
+        fd = fds.get(filename);
+        if (fd == null) {
+            rc = ThreadedKernel.fileSystem.remove(fd.filename) ? 0 : -1;
+        } else {
+            fd.needRemove = true;
+        }
+
+        return rc;
     }
 
     private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2, syscallJoin = 3, syscallCreate = 4,
@@ -428,9 +573,22 @@ public class UserProcess {
      * @return the value to be returned to the user.
      */
     public int handleSyscall(int syscall, int a0, int a1, int a2, int a3) {
+        Lib.debug(dbgProcess, "Doing syscall " + syscall);
         switch (syscall) {
         case syscallHalt:
             return handleHalt();
+        case syscallCreate:
+            return handleCreate(a0);
+        case syscallOpen:
+            return handleOpen(a0);
+        case syscallRead:
+            return handleRead(a0, a1, a2);
+        case syscallWrite:
+            return handleWrite(a0, a1, a2);
+        case syscallClose:
+            return handleClose(a0);
+        case syscallUnlink:
+            return handleUnlink(a0);
 
         default:
             Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -438,6 +596,80 @@ public class UserProcess {
         }
         return 0;
     }
+
+    public class FileDescriptor {
+        public FileDescriptor(int id) {
+            this.id = id;
+        }
+
+        public void reset() {
+            this.filename = "";
+            this.impl = null;
+            this.position = 0;
+            this.needRemove = false;
+        }
+
+        public boolean isEmpty() {
+            return this.impl == null;
+        }
+
+        public int id;
+        public String filename = "";
+        public OpenFile impl = null;
+        public int position = 0;
+        public boolean needRemove = false;
+    }
+
+    public class FileDescriptorPool {
+        static final int maxFds = 16;
+        static final int STDIN = 0;
+        static final int STDOUT = 1;
+        static final int STDERR = 2;
+
+        private FileDescriptor []pool = new FileDescriptor[maxFds];
+
+        public FileDescriptorPool() {
+            for (int i = 0; i < maxFds; ++i) {
+                pool[i] = new FileDescriptor(i);
+            }
+        }
+
+        public FileDescriptor alloc() {
+            for (int i = 0; i < maxFds; ++i) {
+                if (pool[i].isEmpty()) {
+                    return pool[i];
+                }
+            }
+            return null;
+        }
+
+        public int free(int fd) {
+            Lib.assertTrue(!pool[fd].isEmpty());
+            pool[fd].reset();
+            return 0;
+        }
+
+        public FileDescriptor get(int id) {
+            if (id < 0 || id >= maxFds) {
+                return null;
+            }
+            return pool[id];
+        }
+
+        public FileDescriptor get(String filename) {
+            if (filename == "") {
+                return null;
+            }
+
+            for (int i = 0; i < maxFds; ++i) {
+                if (pool[i].filename.equals(filename)) {
+                    Lib.assertTrue(!pool[i].isEmpty());
+                    return pool[i];
+                }
+            }
+            return null;
+        }
+    };
 
     /**
      * Handle a user exception. Called by
@@ -466,6 +698,8 @@ public class UserProcess {
         }
     }
 
+    protected FileDescriptorPool fds = new FileDescriptorPool();
+
     /** The program being run by this process. */
     protected Coff coff;
 
@@ -482,4 +716,5 @@ public class UserProcess {
 
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';
+    private static final int maxArgStringLen = 256;
 }
