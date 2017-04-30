@@ -69,7 +69,7 @@ public class LotteryScheduler extends PriorityScheduler {
 
         public void waitForAccess(KThread thread) {
             Lib.assertTrue(Machine.interrupt().disabled());
-            
+
             ThreadState state = getThreadState(thread);
             ThreadPriorityRecord record = new ThreadPriorityRecord(state, state.getEffectivePriority());
 
@@ -101,7 +101,7 @@ public class LotteryScheduler extends PriorityScheduler {
                 }
                 stateToRecord.remove(state);
             }
-            
+
             this.acquiredState = state;
             state.acquire(this);
         }
@@ -109,14 +109,20 @@ public class LotteryScheduler extends PriorityScheduler {
         protected ThreadState pickNextThread() {
             if (!queue.isEmpty()) {
                 ThreadPriorityRecord[] array = queue.toArray(new ThreadPriorityRecord[0]);
-                int sum = 0;
+                long sum = 0;
                 for (ThreadPriorityRecord i : array) {
-                    sum = add(sum, i.getPriority() + 1);
+                    if (i.getPriority() == Integer.MAX_VALUE)
+                        sum += 1;
+                    else
+                        sum += i.getPriority() + 1;
                 }
-                int random = rng.nextInt(sum);
+                long random = rng.nextLong() % sum;
                 ThreadPriorityRecord record = null;
                 for (ThreadPriorityRecord i : array) {
-                    random -= i.getPriority() + 1;
+                    if (i.getPriority() == Integer.MAX_VALUE)
+                        random -= 1;
+                    else
+                        random -= i.getPriority() + 1;
                     if (random < 0) {
                         record = i;
                     }
@@ -158,7 +164,7 @@ public class LotteryScheduler extends PriorityScheduler {
             sumPriority = add(sumPriority, state.effectivePriority);
             boolean success = queue.remove(record);
             if (success) {
-                sumPriority = add(sumPriority, - record.getPriority());                 
+                sumPriority = add(sumPriority, - record.getPriority());
             }
             record.setPriority(state.effectivePriority);
             queue.add(record);
