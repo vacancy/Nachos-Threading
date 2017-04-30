@@ -5,6 +5,7 @@ import nachos.threads.*;
 import nachos.userprog.*;
 
 import java.io.EOFException;
+import java.util.LinkedList;
 
 /**
  * Encapsulates the state of a user process that is not contained in its user
@@ -82,7 +83,8 @@ public class UserProcess {
         if (!load(name, args))
             return false;
 
-        new UThread(this).setName(name).fork();
+        this.ownerThread = new UThread(this);
+        this.ownerThread.setName(name).fork();
 
         return true;
     }
@@ -552,6 +554,99 @@ public class UserProcess {
         return rc;
     }
 
+    private int handleExec(int a0, int argc, int argv) {
+        String filename = readVirtualMemoryString(a0, maxArgStringLen);
+        if (filename == null) {
+            Lib.debug(dbgProcess, "Exec: invalid filename.");
+            return -1;
+        }
+
+        if (!filename.endsWith(".coff")) {
+            Lib.debug(dbgProcess, "Exec: invalid filename, should ends with `.coff`.");
+            return -1;
+        }
+
+        if (argc < 0) {
+            Lib.debug(dbgProcess, "Exec: invalid argc < 0.");
+            return -1;
+        }
+
+        String strArgv[] = new String[argc];
+        byte byteAddr[] = new byte[4];
+        for (int i = 0; i < argc; ++i) {
+            int addrBytes = readVirtualMemory(argv + i * 4, byteAddr);
+            if (addrBytes != 4) {
+                Lib.debug(dbgProcess, "Exec: invalid argv, addr bytes != 4.");
+                return -1;
+            }
+
+            int addr = Lib.bytesToInt(byteAddr, 0);
+            strArgv[i] = readVirtualMemoryString(addr, maxArgStringLen);
+        }
+
+        UserProcess p = UserProcess.newUserProcess();
+        p.ppid = pid;
+        children.add(p.pid);
+
+        boolean rc = p.execute(filename, strArgv);
+        return rc ? p.pid : -1;
+    }
+
+    private int handleJoin(int childPid, int statusBuf) {
+        boolean isChild = false;
+        for (int pid : children) {
+            if (pid == childPid) {
+                isChild = true;
+                break;
+            }
+        }
+
+        if (!isChild) {
+            Lib.debug(dbgProcess, "Join: invalid child pid.");
+            return -1;
+        }
+
+        children.remove(childPid);
+        UserProcess p = UserKernel.getProcess(childPid);
+        p.ownerThread.join();
+        UserKernel.unregisterProcess(p);
+
+        byte byteStatus[] = Lib.bytesFromInt(p.exitStatus);
+        int statusBytes = writeVirtualMemory(statusBuf, byteStatus);
+        if (statusBytes != 4) {
+            return -1;
+        }
+        return 0;
+    }
+
+    private int handleExit(int status) {
+        // Close all file descriptors
+        for (FileDescriptor fd : fds.getAll()) {
+            handleClose(fd.id);
+        } 
+
+        // All children
+        while (!children.isEmpty()) {
+            int childPid = children.removeFirst();
+            UserProcess p = UserKernel.getProcess(childPid);
+            p.ppid = UserKernel.getRootProcess().pid;
+        }
+
+        // Unload sections
+        this.unloadSections();
+
+        this.exitStatus = status;
+
+        if (this.pid == UserKernel.getRootProcess().pid) {
+            Kernel.kernel.terminate(); 
+        } else {
+            KThread.currentThread().finish();
+        }
+
+        Lib.assertNotReached();
+        return 0;
+    }
+
     private static final int syscallHalt = 0, syscallExit = 1, syscallExec = 2, syscallJoin = 3, syscallCreate = 4,
             syscallOpen = 5, syscallRead = 6, syscallWrite = 7, syscallClose = 8, syscallUnlink = 9;
 
@@ -625,7 +720,6 @@ public class UserProcess {
         Lib.debug(dbgProcess, "Doing syscall " + syscall);
         switch (syscall) {
         case syscallHalt:
-        case syscallExit:
             return handleHalt();
         case syscallCreate:
             return handleCreate(a0);
@@ -639,6 +733,12 @@ public class UserProcess {
             return handleClose(a0);
         case syscallUnlink:
             return handleUnlink(a0);
+        case syscallExec:
+            return handleExec(a0, a1, a2);
+        case syscallJoin:
+            return handleJoin(a0, a1);
+        case syscallExit:
+            return handleExit(a0);
 
         default:
             Lib.debug(dbgProcess, "Unknown syscall " + syscall);
@@ -706,6 +806,10 @@ public class UserProcess {
             return pool[id];
         }
 
+        public FileDescriptor []getAll() {
+            return pool;
+        }
+
         public FileDescriptor get(String filename) {
             if (filename == "") {
                 return null;
@@ -763,6 +867,12 @@ public class UserProcess {
 
     private int initialPC, initialSP;
     private int argc, argv;
+
+    public int pid = 0;
+    public int ppid = 0;
+    public int exitStatus;
+    private UThread ownerThread;
+    public LinkedList<Integer> children = new LinkedList<Integer>();
 
     private static final int pageSize = Processor.pageSize;
     private static final char dbgProcess = 'a';

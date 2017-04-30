@@ -4,6 +4,8 @@ import nachos.machine.*;
 import nachos.threads.*;
 import nachos.userprog.*;
 
+import java.util.HashMap;
+
 /**
  * A kernel that can support multiple user processes.
  */
@@ -41,12 +43,12 @@ public class UserKernel extends ThreadedKernel {
         System.out.println("Testing the console device. Typed characters");
         System.out.println("will be echoed until q is typed.");
 
-        char c;
+        // char c;
 
-        do {
-            c = (char) console.readByte(true);
-            console.writeByte(c);
-        } while (c != 'q');
+        // do {
+        //     c = (char) console.readByte(true);
+        //     console.writeByte(c);
+        // } while (c != 'q');
 
         System.out.println("");
     }
@@ -109,6 +111,32 @@ public class UserKernel extends ThreadedKernel {
         super.terminate();
     }
 
+    public static void registerProcess(UserProcess p) {
+        boolean savedInterrupt = Machine.interrupt().disable();
+        int pid = ++nextPid;
+        if (rootProcess == null) {
+            rootProcess = p;
+        }
+        p.pid = pid;
+        processes.put(pid, p);
+        Machine.interrupt().restore(savedInterrupt);
+    }
+
+    public static void unregisterProcess(UserProcess p) {
+        boolean savedInterrupt = Machine.interrupt().disable();
+        processes.remove(p.pid);
+        Machine.interrupt().restore(savedInterrupt);
+    }
+
+    public static UserProcess getProcess(int pid) {
+        return processes.get(pid);
+    }
+
+    public static UserProcess getRootProcess() {
+        Lib.assertTrue(rootProcess == null);
+        return rootProcess;
+    }
+
     public class MemoryAllocator {
         public MemoryAllocator(int numPages){
             remainPages = numPages;
@@ -143,6 +171,9 @@ public class UserKernel extends ThreadedKernel {
 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
+    public static HashMap<Integer, UserProcess> processes = new HashMap<Integer, UserProcess>();
+    public static UserProcess rootProcess = null;
+    private static int nextPid = 0;
 
     // dummy variables to make javac smarter
     private static Coff dummy1 = null;
