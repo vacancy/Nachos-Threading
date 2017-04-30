@@ -31,6 +31,7 @@ LIB = assert atoi printf readline stdio strncmp strcat strcmp strcpy strlen memc
 NLIB = libnachos.a
 
 TARGETS = halt sh matmult sort echo cat cp mv rm #chat chatserver
+TARGETS += openfile exception exittest p2_open p2_fssyscall p2_loopawhile p2_isprmgr
 
 .SECONDARY: $(patsubst %.c,%.o,$(wildcard *.c))
 

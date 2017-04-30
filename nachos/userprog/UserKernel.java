@@ -133,7 +133,7 @@ public class UserKernel extends ThreadedKernel {
     }
 
     public static UserProcess getRootProcess() {
-        Lib.assertTrue(rootProcess == null);
+        Lib.assertTrue(rootProcess != null);
         return rootProcess;
     }
 
