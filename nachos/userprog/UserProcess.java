@@ -686,6 +686,9 @@ public class UserProcess {
 
         children.remove(new Integer(childPid));
         UserProcess p = UserKernel.getProcess(childPid);
+        if (p == null){
+            return -1;
+        }
         p.ownerThread.join();
         UserKernel.unregisterProcess(p);
 

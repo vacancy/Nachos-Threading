@@ -61,7 +61,7 @@ public class PriorityScheduler extends Scheduler {
     public void setPriority(KThread thread, int priority) {
         Lib.assertTrue(Machine.interrupt().disabled());
 
-        Lib.assertTrue(priority >= priorityMinimum && priority <= priorityMaximum);
+        Lib.assertTrue(priority >= priorityMinimum && priority <= getPriorityMaximum());
 
         getThreadState(thread).setPriority(priority);
     }
@@ -72,7 +72,7 @@ public class PriorityScheduler extends Scheduler {
         KThread thread = KThread.currentThread();
 
         int priority = getPriority(thread);
-        if (priority == priorityMaximum)
+        if (priority == getPriorityMaximum())
             return false;
 
         setPriority(thread, priority + 1);
@@ -240,6 +240,9 @@ public class PriorityScheduler extends Scheduler {
      * The maximum priority that a thread can have. Do not change this value.
      */
     public static final int priorityMaximum = 7;
+    public static int getPriorityMaximum(){
+        return priorityMaximum;
+    }
 
     /**
      * Return the scheduling state of the specified thread.
@@ -268,7 +271,7 @@ public class PriorityScheduler extends Scheduler {
             
             ThreadState state = getThreadState(thread);
             ThreadPriorityRecord record = new ThreadPriorityRecord(state, state.getEffectivePriority());
-            int currentMax = getMaxPrioirty();
+            int currentMax = getMaxPriority();
 
             queue.add(record);
             stateToRecord.put(record.state, record);
@@ -343,7 +346,7 @@ public class PriorityScheduler extends Scheduler {
             // implement me (if you want)
         }
 
-        public int getMaxPrioirty() {
+        public int getMaxPriority() {
             boolean intStatus = Machine.interrupt().disable();
 
             ThreadPriorityRecord peek = queue.peek();
@@ -360,7 +363,7 @@ public class PriorityScheduler extends Scheduler {
 
             ThreadPriorityRecord record = stateToRecord.get(state);
             queue.remove(record);
-            record.setPriority(state.priority);
+            record.setPriority(state.effectivePriority);
             queue.add(record);
 
             Machine.interrupt().restore(intStatus);
@@ -391,9 +394,9 @@ public class PriorityScheduler extends Scheduler {
 
         @Override
         public int compareTo(ThreadPriorityRecord other) {
-            if (this.priority < other.priority) {
+            if (this.getPriority() < other.getPriority()) {
                 return 1;
-            } else if (this.priority == other.priority) {
+            } else if (this.getPriority() == other.getPriority()) {
                 // the threads that was first added into the queue have higher priority.
                 if (this.time > other.time) {
                     return 1;
@@ -507,8 +510,8 @@ public class PriorityScheduler extends Scheduler {
         public void updateEffectivePriority() {
             int max = getPriority();
             for (PriorityQueue q : acquiredQueues) {
-                if (q.getMaxPrioirty() > max) {
-                    max = q.getMaxPrioirty();
+                if (q.getMaxPriority() > max) {
+                    max = q.getMaxPriority();
                 }
             }
 
