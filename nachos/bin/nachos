@@ -11,5 +11,5 @@ onexit () {
 OLDSTTYSTATE=`stty -g`
 trap onexit 0
 stty -icanon min 1 -echo
-java nachos.machine.Machine $*
+java -Dsun.reflect.inflationThreshold=300 nachos.machine.Machine $*
 
