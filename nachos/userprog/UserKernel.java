@@ -13,6 +13,7 @@ public class UserKernel extends ThreadedKernel {
      */
     public UserKernel() {
         super();
+        memoryAllocator = new MemoryAllocator(Machine.processor().getNumPhysPages());
     }
 
     /**
@@ -107,6 +108,38 @@ public class UserKernel extends ThreadedKernel {
     public void terminate() {
         super.terminate();
     }
+
+    public class MemoryAllocator {
+        public MemoryAllocator(int numPages){
+            remainPages = numPages;
+            availablePages = new int[numPages];
+            for (int i = 0; i < numPages; ++ i)
+                availablePages[i] = numPages - 1 - i;
+        }
+        public int getAvailablePage(){
+            // System.out.println("remainPages" + remainPages);
+            Lib.assertTrue(remainPages > 0);
+            boolean intStatus = Machine.interrupt().disable();
+            int res = availablePages[-- remainPages];
+            Machine.interrupt().restore(intStatus);
+            return res;
+        }
+        public void addAvailablePage(int ppn){
+            boolean intStatus = Machine.interrupt().disable();
+            availablePages[remainPages ++] = ppn;
+            Machine.interrupt().restore(intStatus);
+        }
+        public int getRemainPages(){
+            return remainPages;
+        }
+        public boolean notEnoughPages(int numPages){
+            return numPages > remainPages;
+        }
+        private int remainPages;
+        private int[] availablePages;
+    }
+
+    public static MemoryAllocator memoryAllocator;
 
     /** Globally accessible reference to the synchronized console. */
     public static SynchConsole console;
